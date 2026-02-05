@@ -7,6 +7,8 @@
 use axum::{response::IntoResponse, Json};
 use serde_json::json;
 
+pub mod removebg;
+
 /// Health check handler.
 ///
 /// Returns a JSON response indicating the API status. This can be used

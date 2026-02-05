@@ -1,8 +1,20 @@
 # Rust build artifacts
 /target/
+Cargo.lock.log
 
-# Environment variables (secrets)
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
 .env
+.env.local
+.env.*.local
+
+# Gemini CLI
+.gemini/
 
 # OS generated files
 .DS_Store

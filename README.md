@@ -7,6 +7,7 @@ A Rust-based web API built with Axum, Tokio, and Tracing.
 - **High Performance:** Built on top of Axum and Tokio.
 - **Observability:** Integrated tracing for logging and diagnostics.
 - **Simple Architecture:** Clean separation of concerns (Routes, Handlers, Models).
+- **Background Removal:** AI-powered background removal using serverless GPU workers (Modal).
 
 ## Quick Start
 
@@ -47,6 +48,9 @@ The application can be configured using environment variables.
 | `HOST` | The interface to bind to | `127.0.0.1` |
 | `PORT` | The port to listen on | `3000` |
 | `RUST_LOG` | Log level (e.g., `info`, `debug`) | `error` (default if unset) |
+| `MODAL_REMOVEBG_URL` | URL of the deployed Modal worker | `http://localhost:8000` |
+| `RATE_LIMIT_PER_SECOND` | Max requests per second | `50` |
+| `RATE_LIMIT_BURST` | Max burst size | `100` |
 
 ## Architecture
 

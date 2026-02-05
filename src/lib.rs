@@ -4,6 +4,7 @@
 //! It exports the main router creation function and exposes submodules for
 //! handlers, models, and routes.
 
+pub mod config;
 pub mod handlers;
 pub mod models;
 pub mod routes;

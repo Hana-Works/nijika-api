@@ -27,6 +27,46 @@ Returns the current status of the API.
       }
       ```
 
+### Remove Background
+
+Removes the background from an image using an AI model.
+
+- **URL:** `/removebg`
+- **Method:** `POST`
+- **Authentication:** None
+- **Content-Types:** `application/json` or `multipart/form-data`
+
+#### Option 1: JSON Payload (URL)
+
+Provide an image URL to process.
+
+- **Headers:** `Content-Type: application/json`
+- **Body:**
+  ```json
+  {
+    "url": "https://example.com/image.jpg"
+  }
+  ```
+
+#### Option 2: Multipart Upload (File)
+
+Upload an image file directly.
+
+- **Headers:** `Content-Type: multipart/form-data`
+- **Body:** Form data with a field named `image`.
+
+#### Response
+
+- **Success:**
+    - **Code:** `200 OK`
+    - **Content-Type:** `image/png`
+    - **Body:** Binary PNG image data.
+
+- **Error Response:**
+    - **Code:** `400 Bad Request` (Invalid JSON or missing image)
+    - **Code:** `500 Internal Server Error` (Worker connection failure)
+    - **Code:** `502 Bad Gateway` (Worker processing error)
+
 ## Error Handling
 
 The API uses standard HTTP status codes to indicate the success or failure of a request.

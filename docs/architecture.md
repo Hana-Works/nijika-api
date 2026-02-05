@@ -16,13 +16,31 @@ The application is structured into several key modules:
 - **`handlers/`**: Contains the business logic for processing requests and generating responses.
 - **`models/`**: Defines the data structures (schemas) used throughout the application, including database models and request/response DTOs.
 
+## External Services
+
+- **Modal Worker**: A Python-based serverless worker (hosted on Modal.com) responsible for GPU-intensive tasks like background removal. The Rust API acts as a proxy/gateway to this service.
+
 ## Data Flow
 
 1.  **Request**: A client sends an HTTP request to the server.
 2.  **Routing**: The Axum router matches the request path and method to a handler defined in the `routes` module.
 3.  **Handling**: The handler in the `handlers` module receives the request (and any extracted data). It may interact with services or models to perform business logic.
+    - *Example*: For `/removebg`, the handler forwards the request to the Modal worker via HTTP.
 4.  **Modeling**: Data is structured using types defined in the `models` module.
 5.  **Response**: The handler returns a response, which Axum serializes (typically to JSON) and sends back to the client.
+
+## Design Decisions
+
+### Why Modal for Workers?
+We utilize [Modal](https://modal.com) for GPU-intensive tasks like background removal for several reasons:
+- **Serverless GPU**: Eliminates the need to manage permanent GPU infrastructure, reducing costs significantly for sporadic workloads.
+- **Scalability**: Modal scales from 0 to many workers automatically based on demand.
+- **Python Ecosystem**: Allows leveraging the rich ecosystem of Python AI/ML libraries (like PyTorch and BiRefNet) while keeping the main API in high-performance Rust.
+
+### Why Rust & Axum?
+- **Performance**: Rust provides near-native performance with memory safety guarantees.
+- **Reliability**: Axum's type-safe routing and error handling minimize runtime exceptions.
+- **Concurrency**: Tokio's async runtime handles high concurrency efficiently, ideal for an API gateway.
 
 ## Technology Stack
 
