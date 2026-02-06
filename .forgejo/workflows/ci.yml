@@ -12,7 +12,7 @@ env:
 jobs:
   fmt:
     name: Rustfmt
-    runs-on: docker
+    runs-on: codeberg-medium
     container:
       image: rust:1.85-bookworm
     steps:
@@ -22,7 +22,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: docker
+    runs-on: codeberg-medium
     needs: fmt
     container:
       image: rust:1.85-bookworm
@@ -45,7 +45,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: docker
+    runs-on: codeberg-medium
     needs: clippy
     container:
       image: rust:1.85-bookworm
@@ -68,7 +68,7 @@ jobs:
 
   build:
     name: Build Release
-    runs-on: docker
+    runs-on: codeberg-medium
     needs: test
     container:
       image: rust:1.85-bookworm
