@@ -17,9 +17,16 @@ Thank you for your interest in contributing to Nijika API! We welcome contributi
 
 ## Development Standards
 
+### Automation
+We provide a `Makefile` to simplify local development. You can run all standard checks with:
+```bash
+make check
+```
+
 ### Code Style
-- We use standard Rust formatting. Run `cargo fmt` before committing.
-- Ensure your code passes clippy checks: `cargo clippy`.
+- We use standard Rust formatting. Run `make fmt` (or `cargo fmt`) before committing.
+- Ensure your code passes clippy checks: `make clippy` (or `cargo clippy`).
+- **Note:** CI will fail if the code is not formatted or has clippy warnings. We no longer automatically fix formatting in CI to keep the git history clean.
 
 ### Documentation
 - Update `README.md` if you change behavior or configuration.

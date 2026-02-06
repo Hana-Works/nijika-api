@@ -16,26 +16,11 @@ jobs:
     container:
       image: rust:1.85-bookworm
     steps:
-      - name: Install Node.js and Git
-        run: |
-          apt-get update
-          apt-get install -y nodejs git
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Run fmt
         run: |
           rustup component add rustfmt
-          cargo fmt --all
-      - name: Commit and push changes
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git config --global user.name "forgejo-actions[bot]"
-            git config --global user.email "forgejo-actions[bot]@noreply.codeberg.org"
-            git add .
-            git commit -m "style: automatic formatting fix"
-            git push
-          fi
+          cargo fmt --all -- --check
 
   clippy:
     name: Clippy
