@@ -27,7 +27,7 @@ The application is structured into several key modules:
 3.  **Handling**: The handler in the `handlers` module receives the request (and any extracted data). It may interact with services or models to perform business logic.
     - *Example*: For `/removebg`, the handler forwards the request to the Modal worker via HTTP.
 4.  **Modeling**: Data is structured using types defined in the `models` module.
-5.  **Response**: The handler returns a response, which Axum serializes (typically to JSON) and sends back to the client.
+5.  **Response**: The handler returns a response. For resource-intensive tasks, the response from the Modal worker is streamed back to the client to minimize memory overhead.
 
 ## Design Decisions
 
@@ -36,11 +36,13 @@ We utilize [Modal](https://modal.com) for GPU-intensive tasks like background re
 - **Serverless GPU**: Eliminates the need to manage permanent GPU infrastructure, reducing costs significantly for sporadic workloads.
 - **Scalability**: Modal scales from 0 to many workers automatically based on demand.
 - **Python Ecosystem**: Allows leveraging the rich ecosystem of Python AI/ML libraries (like PyTorch and BiRefNet) while keeping the main API in high-performance Rust.
+- **Concurrency Support**: Workers are configured with `allow_concurrent_inputs`, enabling a single GPU instance to process multiple requests simultaneously, maximizing resource utilization.
 
 ### Why Rust & Axum?
 - **Performance**: Rust provides near-native performance with memory safety guarantees.
 - **Reliability**: Axum's type-safe routing and error handling minimize runtime exceptions.
 - **Concurrency**: Tokio's async runtime handles high concurrency efficiently, ideal for an API gateway.
+- **Streaming Support**: Axum and `reqwest` allow for efficient streaming of large binary payloads (like processed images) directly from the backend worker to the client.
 
 ## Technology Stack
 
