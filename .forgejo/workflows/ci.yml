@@ -77,30 +77,6 @@ jobs:
       - name: Run tests
         run: cargo test
 
-  build:
-    name: Build Release
-    runs-on: codeberg-medium
-    needs: test
-    if: github.event_name == 'pull_request'
-    container:
-      image: rust:1.85-bookworm
-    steps:
-      - name: Install system dependencies
-        run: |
-          apt-get update
-          apt-get install -y nodejs pkg-config libssl-dev
-      - uses: actions/checkout@v4
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-      - name: Build release
-        run: cargo build --release
-
   docker:
     name: Docker Build & Push
     runs-on: codeberg-medium
