@@ -77,7 +77,8 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
                 }
                 "model" => {
                     if let Ok(text) = field.text().await {
-                        model = serde_json::from_str::<UpscalerModel>(&format!("\"{}\"", text)).ok();
+                        model =
+                            serde_json::from_str::<UpscalerModel>(&format!("\"{}\"", text)).ok();
                     }
                 }
                 "scale" => {
