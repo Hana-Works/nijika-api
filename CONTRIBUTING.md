@@ -4,10 +4,10 @@ Thank you for your interest in contributing to Nijika API! We welcome contributi
 
 ## Getting Started
 
-1.  **Fork the repository** on GitHub.
+1.  **Fork the repository** on Codeberg.
 2.  **Clone your fork** locally:
     ```bash
-    git clone https://github.com/your-username/nijika-api.git
+    git clone ssh://git@codeberg.org/your-username/nijika-api.git
     cd nijika-api
     ```
 3.  **Create a branch** for your feature or bug fix:

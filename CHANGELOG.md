@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Changed
+- Migrated primary repository to Codeberg: `ssh://git@codeberg.org/hanaworks-opensource-project/nijika-api.git`.
+- Updated `README.md` and `CONTRIBUTING.md` with new repository links and updated feature descriptions.
 - Concurrency support for Modal workers (`removebg` and `upscaler`) using `allow_concurrent_inputs`, enabling multiple requests to be processed by a single GPU instance.
 - Async image fetching in Modal workers using `httpx` for better resource utilization.
 - Thread-safe model caching in the upscaler worker to support concurrent requests.

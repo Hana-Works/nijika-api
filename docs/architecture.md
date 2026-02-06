@@ -50,3 +50,5 @@ We utilize [Modal](https://modal.com) for GPU-intensive tasks like background re
 - **Logging & Diagnostics**: [Tracing](https://github.com/tokio-rs/tracing)
 - **Environment Management**: [dotenvy](https://github.com/allan2/dotenvy)
 - **Serialization**: [Serde](https://serde.rs/)
+- **Rate Limiting**: [tower-governor](https://github.com/benwis/tower-governor)
+- **HTTP Client**: [reqwest](https://github.com/seanmonstar/reqwest)

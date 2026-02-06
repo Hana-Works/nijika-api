@@ -33,6 +33,12 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
             }
         };
 
+        if let Some(scale) = payload.scale {
+            if !(1..=6).contains(&scale) {
+                return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
+            }
+        }
+
         let res = match client.post(modal_url).json(&payload).send().await {
             Ok(res) => res,
             Err(e) => {
@@ -100,6 +106,12 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
                 return (StatusCode::BAD_REQUEST, "No image found in 'image' field").into_response();
             }
         };
+
+        if let Some(s) = scale {
+            if !(1..=6).contains(&s) {
+                return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
+            }
+        }
 
         let mut rb = client
             .post(modal_url)

@@ -7,7 +7,8 @@ A Rust-based web API built with Axum, Tokio, and Tracing.
 - **High Performance:** Built on top of Axum and Tokio.
 - **Observability:** Integrated tracing for logging and diagnostics.
 - **Simple Architecture:** Clean separation of concerns (Routes, Handlers, Models).
-- **Background Removal:** AI-powered background removal using serverless GPU workers (Modal).
+- **Background Removal:** AI-powered background removal using BiRefNet on Modal.
+- **Image Upscaling:** AI-powered upscaling using Real-ESRGAN on Modal.
 
 ## Quick Start
 
@@ -19,7 +20,7 @@ A Rust-based web API built with Axum, Tokio, and Tracing.
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
+    git clone ssh://git@codeberg.org/hanaworks-opensource-project/nijika-api.git
     cd nijika-api
     ```
 
