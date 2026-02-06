@@ -22,7 +22,9 @@ jobs:
           apt-get install -y nodejs
       - uses: actions/checkout@v4
       - name: Run fmt
-        run: cargo fmt --all -- --check
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -45,7 +47,9 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets --all-features -- -D warnings
 
   test:
     name: Test
