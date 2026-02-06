@@ -13,7 +13,7 @@ jobs:
   fmt:
     name: Rustfmt
     runs-on: codeberg-medium
-    if: forgejo.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     container:
       image: rust:1.85-bookworm
     steps:
@@ -31,7 +31,7 @@ jobs:
     name: Clippy
     runs-on: codeberg-medium
     needs: fmt
-    if: forgejo.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     container:
       image: rust:1.85-bookworm
     steps:
@@ -57,7 +57,7 @@ jobs:
     name: Test
     runs-on: codeberg-medium
     needs: clippy
-    if: forgejo.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     container:
       image: rust:1.85-bookworm
     steps:
@@ -81,7 +81,7 @@ jobs:
     name: Build Release
     runs-on: codeberg-medium
     needs: test
-    if: forgejo.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     container:
       image: rust:1.85-bookworm
     steps:
@@ -104,20 +104,30 @@ jobs:
   docker:
     name: Docker Build & Push
     runs-on: codeberg-medium
-    if: forgejo.event_name == 'push' && forgejo.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
+      - name: Get Repository Name
+        id: repo_name
+        run: echo "name=${GITHUB_REPOSITORY#*/}" >> $GITHUB_OUTPUT
       - name: Login to Codeberg Container Registry
         uses: docker/login-action@v3
         with:
           registry: codeberg.org
-          username: ${{ forgejo.repository_owner }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            codeberg.org/${{ forgejo.repository }}:latest
-            codeberg.org/${{ forgejo.repository }}:${{ forgejo.sha }}
+            codeberg.org/${{ github.repository }}:latest
+            codeberg.org/${{ github.repository }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.repo_name.outputs.name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ steps.repo_name.outputs.name }}:${{ github.sha }}
