@@ -72,8 +72,16 @@ image = (
 )
 @modal.concurrent(max_inputs=4)
 class Upscaler:
+    """
+    Real-ESRGAN upscaler wrapper with support for multiple models and face enhancement.
+    Runs on Modal's serverless GPU infrastructure.
+    """
+
     @modal.enter()
     def load_model(self):
+        """
+        Initializes the model cache and ensures weights are available in the volume.
+        """
         import sys
         import types
         import os
@@ -104,6 +112,9 @@ class Upscaler:
             os.makedirs("/cache/weights", exist_ok=True)
 
     def get_model_and_paths(self, model_name, denoise_strength):
+        """
+        Resolves the appropriate model architecture and weights path based on the model name.
+        """
         import os
         from basicsr.archs.rrdbnet_arch import RRDBNet
         from realesrgan.archs.srvgg_arch import SRVGGNetCompact
@@ -145,6 +156,10 @@ class Upscaler:
         return model, netscale, model_path, dni_weight
 
     def get_upsampler(self, model_name, denoise_strength):
+        """
+        Retrieves or creates a RealESRGANer instance for the specified model.
+        Uses a thread-safe cache to avoid redundant initializations.
+        """
         key = (model_name, float(denoise_strength))
         with self.cache_lock:
             if key in self.UPSAMPLER_CACHE:
@@ -169,6 +184,10 @@ class Upscaler:
         return upsampler
 
     def get_face_enhancer(self, upsampler, outscale):
+        """
+        Retrieves or creates a GFPGANer instance for face enhancement.
+        Uses a thread-safe cache.
+        """
         import os
         key = int(outscale)
         with self.cache_lock:
@@ -190,6 +209,11 @@ class Upscaler:
 
     @modal.fastapi_endpoint(method="POST")
     async def upscale(self, request: Request):
+        """
+        FastAPI endpoint to upscale and restore images.
+        Supports various models, custom scales, and face enhancement.
+        Accepts parameters via JSON or X-Scale/X-Model/X-Face-Enhance headers for raw body.
+        """
         import io
         import cv2
         import numpy as np

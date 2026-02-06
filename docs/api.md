@@ -123,5 +123,7 @@ The API uses standard HTTP status codes to indicate the success or failure of a 
 |-------------|-------------|
 | `200 OK` | The request was successful. |
 | `400 Bad Request` | The request was invalid or cannot be served. |
+| `429 Too Many Requests` | Rate limit exceeded. |
 | `404 Not Found` | The requested resource could not be found. |
 | `500 Internal Server Error` | An unexpected error occurred on the server. |
+| `502 Bad Gateway` | The processing worker (Modal) returned an error or is unreachable. |
