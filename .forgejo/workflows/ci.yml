@@ -16,6 +16,10 @@ jobs:
     container:
       image: rust:1.85-bookworm
     steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y nodejs
       - uses: actions/checkout@v4
       - name: Run fmt
         run: |
