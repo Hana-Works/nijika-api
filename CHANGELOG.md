@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Forgejo CI/CD workflow for automated code quality checks (fmt, clippy), testing, and release builds.
+
 ### Changed
 - Migrated primary repository to Codeberg: `ssh://git@codeberg.org/hanaworks-opensource-project/nijika-api.git`.
 - Updated `README.md` and `CONTRIBUTING.md` with new repository links and updated feature descriptions.

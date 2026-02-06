@@ -33,10 +33,8 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
             }
         };
 
-        if let Some(scale) = payload.scale {
-            if !(1..=6).contains(&scale) {
-                return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
-            }
+        if payload.scale.is_some_and(|scale| !(1..=6).contains(&scale)) {
+            return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
         }
 
         let res = match client.post(modal_url).json(&payload).send().await {
@@ -79,11 +77,7 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
                 }
                 "model" => {
                     if let Ok(text) = field.text().await {
-                        if let Ok(m) =
-                            serde_json::from_str::<UpscalerModel>(&format!("\"{}\"", text))
-                        {
-                            model = Some(m);
-                        }
+                        model = serde_json::from_str::<UpscalerModel>(&format!("\"{}\"", text)).ok();
                     }
                 }
                 "scale" => {
@@ -103,14 +97,13 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
         let image_bytes = match image_data {
             Some(data) => data,
             None => {
-                return (StatusCode::BAD_REQUEST, "No image found in 'image' field").into_response();
+                return (StatusCode::BAD_REQUEST, "No image found in 'image' field")
+                    .into_response();
             }
         };
 
-        if let Some(s) = scale {
-            if !(1..=6).contains(&s) {
-                return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
-            }
+        if scale.is_some_and(|s| !(1..=6).contains(&s)) {
+            return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
         }
 
         let mut rb = client

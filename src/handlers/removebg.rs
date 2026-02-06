@@ -72,7 +72,8 @@ pub async fn remove_bg(State(config): State<Arc<Config>>, request: Request) -> R
         let image_bytes = match image_data {
             Some(data) => data,
             None => {
-                return (StatusCode::BAD_REQUEST, "No image found in 'image' field").into_response();
+                return (StatusCode::BAD_REQUEST, "No image found in 'image' field")
+                    .into_response();
             }
         };
 
