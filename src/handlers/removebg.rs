@@ -61,10 +61,11 @@ pub async fn remove_bg(State(config): State<Arc<Config>>, request: Request) -> R
         let mut image_data = None;
         while let Some(field) = multipart.next_field().await.unwrap_or(None) {
             if field.name() == Some("image") {
-                if let Ok(bytes) = field.bytes().await {
-                    image_data = Some(bytes);
-                    break;
-                }
+                let Ok(bytes) = field.bytes().await else {
+                    continue;
+                };
+                image_data = Some(bytes);
+                break;
             }
         }
 
