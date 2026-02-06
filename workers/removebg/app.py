@@ -1,10 +1,33 @@
 import modal
-import io
-import time
-from fastapi import Request, Response, HTTPException
+from fastapi import Request
 
 app = modal.App("nijika-removebg")
-volume = modal.Volume.from_name("nijika-removebg-volume", create_if_missing=True)
+
+cache_volume = modal.Volume.from_name("nijika-model-cache", create_if_missing=True)
+
+def download_model():
+    import sys
+    import types
+    import os
+    
+    if os.path.exists("/cache/hub/models--ZhengPeng7--BiRefNet"):
+        print("Model already exists in cache, skipping download.")
+        return
+
+    try:
+        import torchvision.transforms.functional as F
+        mod = types.ModuleType("torchvision.transforms.functional_tensor")
+        for name in dir(F):
+            setattr(mod, name, getattr(F, name))
+        sys.modules["torchvision.transforms.functional_tensor"] = mod
+    except ImportError:
+        pass
+
+    from transformers import AutoModelForImageSegmentation
+    AutoModelForImageSegmentation.from_pretrained(
+        "ZhengPeng7/BiRefNet", 
+        trust_remote_code=True
+    )
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -21,16 +44,44 @@ image = (
         "pillow",
         "einops",
         "requests",
-        "kornia"
+        "kornia",
+        "httpx"
     )
     .env({"HF_HOME": "/cache"})
+    .run_function(download_model, volumes={"/cache": cache_volume})
 )
 
-@app.cls(image=image, gpu="T4", scaledown_window=300, volumes={"/cache": volume})
+@app.cls(
+    image=image, 
+    gpu="L4", 
+    scaledown_window=300, 
+    volumes={"/cache": cache_volume}
+)
+@modal.concurrent(max_inputs=8)
 class Model:
     @modal.enter()
     def load_model(self):
+        import sys
+        import types
         import torch
+        import time
+        import os
+
+        # Ensure model is downloaded (though it should be handled by Volume)
+        if not os.path.exists("/cache/hub/models--ZhengPeng7--BiRefNet"):
+            print("Model not found in Volume, downloading...")
+            download_model()
+            cache_volume.commit()
+
+        try:
+            import torchvision.transforms.functional as F
+            mod = types.ModuleType("torchvision.transforms.functional_tensor")
+            for name in dir(F):
+                setattr(mod, name, getattr(F, name))
+            sys.modules["torchvision.transforms.functional_tensor"] = mod
+        except ImportError:
+            pass
+
         from transformers import AutoModelForImageSegmentation
         from torchvision import transforms
 
@@ -41,15 +92,13 @@ class Model:
         start = time.time()
         self.birefnet = AutoModelForImageSegmentation.from_pretrained(
             "ZhengPeng7/BiRefNet", 
-            trust_remote_code=True
+            trust_remote_code=True,
+            local_files_only=True
         )
         self.birefnet.to("cuda")
         self.birefnet.eval()
         print(f"Model loaded in {time.time() - start:.2f}s")
         
-        if hasattr(volume, "commit"):
-            volume.commit()
-
         self.transform_image = transforms.Compose([
             transforms.Resize((1024, 1024)),
             transforms.ToTensor(),
@@ -58,8 +107,10 @@ class Model:
 
     @modal.fastapi_endpoint(method="POST")
     async def remove(self, request: Request):
+        from fastapi import Response, HTTPException
         from PIL import Image
-        import requests
+        import httpx
+        import io
 
         content_type = request.headers.get("content-type", "")
         
@@ -67,19 +118,20 @@ class Model:
             if "application/json" in content_type:
                 body = await request.json()
                 if "url" not in body:
-                     raise HTTPException(status_code=400, detail="JSON body must contain 'url' field")
+                    raise HTTPException(status_code=400, detail="JSON body must contain 'url' field")
                 
                 image_url = body["url"]
                 print(f"Fetching image from URL: {image_url}")
-                resp = requests.get(image_url, stream=True)
-                resp.raise_for_status()
-                image_bytes = resp.content
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(image_url, follow_redirects=True)
+                    resp.raise_for_status()
+                    image_bytes = resp.content
             else:
                 print("Reading raw image bytes from request body")
                 image_bytes = await request.body()
 
             if not image_bytes:
-                 raise HTTPException(status_code=400, detail="Empty image data")
+                raise HTTPException(status_code=400, detail="Empty image data")
 
             image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
             original_size = image.size

@@ -4,10 +4,11 @@
 //! Handlers are responsible for processing requests and returning
 //! appropriate HTTP responses.
 
-use axum::{response::IntoResponse, Json};
+use axum::{Json, response::IntoResponse};
 use serde_json::json;
 
 pub mod removebg;
+pub mod upscaler;
 
 /// Health check handler.
 ///

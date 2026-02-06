@@ -1,7 +1,7 @@
+use nijika_api::{config::Config, create_router};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use nijika_api::{create_router, config::Config};
 
 /// Application entry point.
 ///
@@ -20,7 +20,7 @@ async fn main() {
 
     let addr_str = format!("{}:{}", config.host, config.port);
     let addr: SocketAddr = addr_str.parse().expect("Invalid HOST or PORT config");
-    
+
     tracing::info!("Listening on {}", addr);
 
     let listener = TcpListener::bind(addr).await.unwrap();

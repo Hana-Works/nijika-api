@@ -12,6 +12,8 @@ pub struct Config {
     pub port: u16,
     /// URL for the background removal Modal worker
     pub modal_removebg_url: String,
+    /// URL for the image upscaler Modal worker
+    pub modal_upscaler_url: String,
     /// Rate limit: requests per second
     pub rate_limit_per_second: u64,
     /// Rate limit: burst size
@@ -34,6 +36,8 @@ impl Config {
             .expect("PORT must be a valid u16");
         let modal_removebg_url =
             env::var("MODAL_REMOVEBG_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+        let modal_upscaler_url =
+            env::var("MODAL_UPSCALER_URL").unwrap_or_else(|_| "http://localhost:8001".to_string());
         let rate_limit_per_second = env::var("RATE_LIMIT_PER_SECOND")
             .unwrap_or_else(|_| "50".to_string())
             .parse::<u64>()
@@ -47,6 +51,7 @@ impl Config {
             host,
             port,
             modal_removebg_url,
+            modal_upscaler_url,
             rate_limit_per_second,
             rate_limit_burst,
         }

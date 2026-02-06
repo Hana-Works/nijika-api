@@ -67,6 +67,54 @@ Upload an image file directly.
     - **Code:** `500 Internal Server Error` (Worker connection failure)
     - **Code:** `502 Bad Gateway` (Worker processing error)
 
+### Image Upscaler
+
+Upscales and restores images using Real-ESRGAN.
+
+- **URL:** `/upscale`
+- **Method:** `POST`
+- **Authentication:** None
+- **Content-Types:** `application/json` or `multipart/form-data`
+
+#### Option 1: JSON Payload (URL)
+
+- **Headers:** `Content-Type: application/json`
+- **Body:**
+  ```json
+  {
+    "url": "https://example.com/image.jpg",
+    "model": "RealESRGAN_x4plus_anime_6B",
+    "scale": 4,
+    "face_enhance": false
+  }
+  ```
+- **Fields:**
+    - `url` (required): URL of the image to upscale.
+    - `model` (optional): Model to use. Choices: `RealESRGAN_x4plus`, `RealESRNet_x4plus`, `RealESRGAN_x4plus_anime_6B`, `RealESRGAN_x2plus`, `realesr-general-x4v3`.
+    - `scale` (optional): Resolution upscale factor (1-6). Default: 4.
+    - `face_enhance` (optional): Use GFPGAN for face enhancement. Default: false.
+
+#### Option 2: Multipart Upload (File)
+
+- **Headers:** `Content-Type: multipart/form-data`
+- **Body:**
+    - `image` (required): Binary image file.
+    - `model` (optional): Text field.
+    - `scale` (optional): Text field (numeric).
+    - `face_enhance` (optional): Text field (`true`/`false`).
+
+#### Response
+
+- **Success:**
+    - **Code:** `200 OK`
+    - **Content-Type:** `image/jpeg`
+    - **Body:** Binary JPEG image data.
+
+- **Error Response:**
+    - **Code:** `400 Bad Request`
+    - **Code:** `500 Internal Server Error`
+    - **Code:** `502 Bad Gateway`
+
 ## Error Handling
 
 The API uses standard HTTP status codes to indicate the success or failure of a request.

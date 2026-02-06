@@ -16,6 +16,7 @@ async fn test_rate_limiting() {
         host: "127.0.0.1".to_string(),
         port: 3000,
         modal_removebg_url: "http://localhost:8000".to_string(),
+        modal_upscaler_url: "http://localhost:8001".to_string(),
         rate_limit_per_second: 1,
         rate_limit_burst: 1,
     });
@@ -30,7 +31,7 @@ async fn test_rate_limiting() {
         .extension(ConnectInfo(addr))
         .body(Body::empty())
         .unwrap();
-    
+
     let response = app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
@@ -40,7 +41,7 @@ async fn test_rate_limiting() {
         .extension(ConnectInfo(addr))
         .body(Body::empty())
         .unwrap();
-    
+
     let response = app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 
@@ -53,7 +54,7 @@ async fn test_rate_limiting() {
         .extension(ConnectInfo(addr))
         .body(Body::empty())
         .unwrap();
-    
+
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 }

@@ -49,6 +49,7 @@ The application can be configured using environment variables.
 | `PORT` | The port to listen on | `3000` |
 | `RUST_LOG` | Log level (e.g., `info`, `debug`) | `error` (default if unset) |
 | `MODAL_REMOVEBG_URL` | URL of the deployed Modal worker | `http://localhost:8000` |
+| `MODAL_UPSCALER_URL` | URL of the deployed Upscaler worker | `http://localhost:8001` |
 | `RATE_LIMIT_PER_SECOND` | Max requests per second | `50` |
 | `RATE_LIMIT_BURST` | Max burst size | `100` |
 

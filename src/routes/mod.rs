@@ -1,16 +1,16 @@
 use axum::{
+    Router,
     extract::Request,
     routing::{get, post},
-    Router,
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::trace::TraceLayer;
 use tracing::Span;
 
 use crate::config::Config;
-use crate::handlers::{health_check, removebg};
+use crate::handlers::{health_check, removebg, upscaler};
 
 /// Creates the main application router.
 ///
@@ -31,6 +31,7 @@ pub fn create_router(config: Arc<Config>) -> Router {
     Router::new()
         .route("/health", get(health_check))
         .route("/removebg", post(removebg::remove_bg))
+        .route("/upscale", post(upscaler::upscale))
         .layer(GovernorLayer::new(governor_conf))
         .layer(
             TraceLayer::new_for_http()

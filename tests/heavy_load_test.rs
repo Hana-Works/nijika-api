@@ -18,12 +18,13 @@ async fn test_heavy_load_health_check() {
         host: "127.0.0.1".to_string(),
         port: 3000,
         modal_removebg_url: "http://localhost:8000".to_string(),
+        modal_upscaler_url: "http://localhost:8001".to_string(),
         rate_limit_per_second: 100,
         rate_limit_burst: 50,
     });
 
     let app = create_router(config);
-    
+
     // Simulate 200 concurrent requests
     let total_requests = 200;
     let mut set = JoinSet::new();
@@ -42,7 +43,7 @@ async fn test_heavy_load_health_check() {
                 .extension(ConnectInfo(addr))
                 .body(Body::empty())
                 .unwrap();
-            
+
             // We use oneshot, which clones the service for each request in the test loop usually,
             // but here we are inside a spawn.
             // Note: Router::oneshot consumes the router. We cloned it above.
@@ -59,13 +60,11 @@ async fn test_heavy_load_health_check() {
 
     while let Some(res) = set.join_next().await {
         match res {
-            Ok(status) => {
-                match status {
-                    StatusCode::OK => success_count += 1,
-                    StatusCode::TOO_MANY_REQUESTS => rate_limit_count += 1,
-                    _ => error_count += 1,
-                }
-            }
+            Ok(status) => match status {
+                StatusCode::OK => success_count += 1,
+                StatusCode::TOO_MANY_REQUESTS => rate_limit_count += 1,
+                _ => error_count += 1,
+            },
             Err(e) => {
                 println!("Task join error: {:?}", e);
                 error_count += 1;
@@ -80,13 +79,19 @@ async fn test_heavy_load_health_check() {
     println!("Errors: {}", error_count);
 
     // Assertions
-    assert_eq!(success_count + rate_limit_count + error_count, total_requests);
+    assert_eq!(
+        success_count + rate_limit_count + error_count,
+        total_requests
+    );
     assert_eq!(error_count, 0, "Should not have any internal server errors");
-    
+
     // With a burst of 50, we expect at least 50 successes.
     // The rest might be rate limited depending on execution speed.
-    assert!(success_count >= 50, "Should allow at least the burst amount");
-    
+    assert!(
+        success_count >= 50,
+        "Should allow at least the burst amount"
+    );
+
     // Since we sent 200 requests with a burst of 50, we expect some 429s
     assert!(rate_limit_count > 0, "Should have triggered rate limiting");
 }

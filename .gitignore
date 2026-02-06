@@ -13,9 +13,6 @@ ENV/
 .env.local
 .env.*.local
 
-# Gemini CLI
-.gemini/
-
 # OS generated files
 .DS_Store
 .DS_Store?
