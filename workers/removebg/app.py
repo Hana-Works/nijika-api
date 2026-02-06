@@ -59,8 +59,17 @@ image = (
 )
 @modal.concurrent(max_inputs=8)
 class Model:
+    """
+    BiRefNet model wrapper for background removal.
+    Runs on Modal's serverless GPU infrastructure.
+    """
+
     @modal.enter()
     def load_model(self):
+        """
+        Initializes the BiRefNet model and moves it to GPU.
+        Executed once per container startup.
+        """
         import sys
         import types
         import torch
@@ -107,6 +116,11 @@ class Model:
 
     @modal.fastapi_endpoint(method="POST")
     async def remove(self, request: Request):
+        """
+        FastAPI endpoint to remove the background from an image.
+        Accepts image URL in JSON or binary image data in request body.
+        Returns a PNG image with a transparent background.
+        """
         from fastapi import Response, HTTPException
         from PIL import Image
         import httpx
