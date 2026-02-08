@@ -70,6 +70,11 @@ We provide a `Makefile` for common development tasks:
 | `BASE_URL` | Base URL for OAuth callbacks | `http://localhost:3000` |
 | `MODAL_REMOVEBG_URL` | URL of the Background Removal worker | (Required) |
 | `MODAL_UPSCALER_URL` | URL of the Upscaler worker | (Required) |
+| `SESSION_SECRET` | Secret key for session encryption (at least 64 bytes) | (Generated) |
+| `RATE_LIMIT_PER_SECOND` | Global API rate limit (requests per second) | `50` |
+| `RATE_LIMIT_BURST` | Global API rate limit burst size | `100` |
+| `HOST` | Interface to bind to | `127.0.0.1` |
+| `PORT` | Port to listen on | `3000` |
 
 ## API Documentation
 

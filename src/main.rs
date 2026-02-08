@@ -1,3 +1,4 @@
+use lazy_limit::{Duration, RuleConfig, init_rate_limiter};
 use nijika_api::{AppState, config::Config, create_router};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
@@ -12,29 +13,40 @@ use tokio::net::TcpListener;
 async fn main() {
     dotenvy::dotenv().ok();
 
+    init_rate_limiter!(
+        default: RuleConfig::new(Duration::seconds(1), 5),
+        max_memory: Some(64 * 1024 * 1024),
+        routes: [
+            ("/health", RuleConfig::new(Duration::seconds(1), 100)),
+            ("/api/", RuleConfig::new(Duration::seconds(1), 5).match_prefix(true)),
+        ]
+    )
+    .await;
+
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
     let config = Arc::new(Config::from_env());
 
-    // Initialize database pool
     let db = PgPoolOptions::new()
         .max_connections(5)
         .connect(&config.database_url)
         .await
         .expect("Failed to connect to Postgres");
 
-    // Run migrations
     sqlx::migrate!("./migrations")
         .run(&db)
         .await
         .expect("Failed to run migrations");
 
+    let cookie_key = axum_extra::extract::cookie::Key::from(config.session_secret.as_bytes());
+
     let state = AppState {
         config: config.clone(),
         db,
         http_client: reqwest::Client::new(),
+        cookie_key,
     };
 
     let app = create_router(state);

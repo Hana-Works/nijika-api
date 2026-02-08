@@ -1,30 +1,61 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Nijika API</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: sans-serif; margin: 2em; }
-        nav a { margin-right: 1em; }
-    </style>
-</head>
-<body>
-    <nav>
-        <a href="/">Home</a>
-        <a href="/login">Login</a>
-        <a href="/register">Register</a>
-        <a href="/dashboard">Dashboard</a>
-    </nav>
-    <h1>Nijika API</h1>
-    <p>High-performance AI-powered image processing.</p>
-    <ul>
-        <li>Background Removal (BiRefNet)</li>
-        <li>Image Upscaling (Real-ESRGAN)</li>
-        <li>Fast Serverless GPU workers</li>
-    </ul>
-    <p>Get started now and receive <strong>$50 in free credits</strong>!</p>
-    <p><a href="/register">Register with GitHub or GitLab</a></p>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}NIJIKA API // High-Performance Image Processing{% endblock %}
+
+{% block content %}
+<div class="panel" style="border: none; background: transparent; padding: 4rem 0; text-align: center;">
+    <div class="tag">Next-Gen AI</div>
+    <h1 style="margin-bottom: 1.5rem;">Transform Your Images with <span style="color: var(--accent-color);">Precision API</span></h1>
+    <p style="font-size: 1.25rem; max-width: 700px; margin: 0 auto 3rem; color: var(--text-muted);">
+        Professional-grade background removal and image upscaling powered by state-of-the-art neural networks. Built for developers and creators.
+    </p>
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a href="/register" class="btn btn-primary" style="padding: 1rem 2.5rem;">Get Started for Free</a>
+        <a href="/login" class="btn btn-outline" style="padding: 1rem 2.5rem;">View Dashboard</a>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-bottom: 4rem;">
+    <div class="panel">
+        <div style="font-size: 2rem; margin-bottom: 1rem;">✨</div>
+        <h3>Background Removal</h3>
+        <p style="color: var(--text-muted);">Pixel-perfect subject isolation using BiRefNet architecture. Optimized for complex edges, hair, and transparent materials.</p>
+    </div>
+    <div class="panel">
+        <div style="font-size: 2rem; margin-bottom: 1rem;">🔍</div>
+        <h3>Image Upscaling</h3>
+        <p style="color: var(--text-muted);">Artifact-free resolution enhancement with Real-ESRGAN. Restore details and clarity in low-resolution captures instantly.</p>
+    </div>
+</div>
+
+<div class="panel" style="background: linear-gradient(145deg, #0f0f0f, #151515); text-align: center; border-color: var(--accent-dim);">
+    <h2 style="margin-bottom: 1rem;">Developer-First API</h2>
+    <p style="margin-bottom: 2.5rem; color: var(--text-muted);">Integrate our powerful image processing capabilities into your own applications with just a few lines of code.</p>
+    
+    <div style="text-align: left; background: #000; padding: 1.5rem; border-radius: 12px; font-family: var(--font-mono); font-size: 0.9rem; overflow-x: auto;">
+        <div style="color: #666; margin-bottom: 0.5rem;">// Request example</div>
+        <div><span style="color: #ff79c6;">curl</span> -X POST <span id="api-endpoint">https://api.nijika.com</span>/api/removebg \</div>
+        <div style="padding-left: 2rem;">-H <span style="color: #f1fa8c;">"X-API-Key: YOUR_API_KEY"</span> \</div>
+        <div style="padding-left: 2rem;">-F <span style="color: #f1fa8c;">"image=@photo.jpg"</span></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const endpoint = document.getElementById('api-endpoint');
+        if (endpoint) {
+            endpoint.textContent = window.location.origin;
+        }
+    });
+</script>
+
+<div class="panel" style="margin-top: 4rem; border-left: 4px solid var(--accent-color);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem;">
+        <div style="flex: 1; min-width: 300px;">
+            <h3>Start Creating Today</h3>
+            <p style="color: var(--text-muted);">New users receive a <strong>$50 credit bonus</strong> to test our API. No credit card required.</p>
+        </div>
+        <a href="/register" class="btn btn-primary">Create Account</a>
+    </div>
+</div>
+{% endblock %}

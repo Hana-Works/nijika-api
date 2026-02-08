@@ -1,11 +1,13 @@
 use crate::AppState;
-use crate::models::User;
+use crate::models::{TransactionType, User};
 use axum::{
     Extension,
     extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Redirect},
 };
+use axum_extra::extract::PrivateCookieJar;
+use axum_extra::extract::cookie::Cookie;
 use chrono::{DateTime, Months, Utc};
 use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
@@ -13,7 +15,6 @@ use oauth2::{
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use tower_sessions::Session;
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
@@ -46,7 +47,10 @@ fn create_gitlab_client(state: &AppState) -> BasicClient {
     )
 }
 
-pub async fn github_login(State(state): State<AppState>, session: Session) -> impl IntoResponse {
+pub async fn github_login(
+    State(state): State<AppState>,
+    jar: PrivateCookieJar,
+) -> impl IntoResponse {
     let client = create_github_client(&state);
 
     let (auth_url, csrf_token) = client
@@ -55,15 +59,14 @@ pub async fn github_login(State(state): State<AppState>, session: Session) -> im
         .add_scope(Scope::new("read:user".to_string()))
         .url();
 
-    if let Err(e) = session
-        .insert("csrf_token", csrf_token.secret().to_string())
-        .await
-    {
-        tracing::error!("Failed to insert CSRF token into session: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response();
-    }
+    let jar = jar.add(
+        Cookie::build(("csrf_token", csrf_token.secret().to_string()))
+            .path("/")
+            .http_only(true)
+            .build(),
+    );
 
-    Redirect::to(auth_url.as_str()).into_response()
+    (jar, Redirect::to(auth_url.as_str())).into_response()
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,18 +74,18 @@ struct GithubUser {
     id: i64,
     login: String,
     email: Option<String>,
+    avatar_url: Option<String>,
     created_at: DateTime<Utc>,
 }
 
 pub async fn github_callback(
     State(state): State<AppState>,
-    session: Session,
+    jar: PrivateCookieJar,
     Query(query): Query<AuthRequest>,
 ) -> impl IntoResponse {
-    let stored_csrf: String = session
+    let stored_csrf = jar
         .get("csrf_token")
-        .await
-        .unwrap_or_default()
+        .map(|c| c.value().to_string())
         .unwrap_or_default();
 
     if query.state != stored_csrf {
@@ -135,9 +138,13 @@ pub async fn github_callback(
     }
 
     let github_id = github_user.id.to_string();
-    let current_user_id: Option<Uuid> = session.get("user_id").await.unwrap_or(None);
+    let current_user_id = jar
+        .get("user_id")
+        .and_then(|c| c.value().parse::<Uuid>().ok());
 
-    let user_by_github_id = sqlx::query_as::<_, User>("SELECT * FROM users WHERE github_id = $1")
+    let user_by_github_id = sqlx::query_as::<_, User>(
+        "SELECT id, github_id, gitlab_id, email, username, avatar_url, credits, role, is_active, api_key, oauth_account_created_at, created_at FROM users WHERE github_id = $1"
+    )
         .bind(&github_id)
         .fetch_optional(&state.db)
         .await;
@@ -151,10 +158,8 @@ pub async fn github_callback(
     };
 
     let user = match (current_user_id, user_by_github_id) {
-        // Case 1: Logged in, and this GitHub account is already linked to THIS user.
         (Some(uid), Some(u)) if u.id == uid => u,
 
-        // Case 2: Logged in, but this GitHub account is linked to ANOTHER user.
         (Some(_), Some(_)) => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -163,12 +168,12 @@ pub async fn github_callback(
                 .into_response();
         }
 
-        // Case 3: Logged in, and this GitHub account is NOT linked to anyone yet.
         (Some(uid), None) => {
             let link_res = sqlx::query_as::<_, User>(
-                "UPDATE users SET github_id = $1 WHERE id = $2 RETURNING *",
+                "UPDATE users SET github_id = $1, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3 RETURNING *",
             )
             .bind(&github_id)
+            .bind(&github_user.avatar_url)
             .bind(uid)
             .fetch_one(&state.db)
             .await;
@@ -182,13 +187,13 @@ pub async fn github_callback(
             }
         }
 
-        // Case 4: NOT logged in, but this GitHub account is already linked to a user.
         (None, Some(u)) => u,
 
-        // Case 5: NOT logged in, and this GitHub account is NOT linked to anyone.
         (None, None) => {
             let user_by_email = if let Some(ref email) = github_user.email {
-                sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = $1")
+                sqlx::query_as::<_, User>(
+                    "SELECT id, github_id, gitlab_id, email, username, avatar_url, credits, role, is_active, api_key, oauth_account_created_at, created_at FROM users WHERE email = $1"
+                )
                     .bind(email)
                     .fetch_optional(&state.db)
                     .await
@@ -205,12 +210,12 @@ pub async fn github_callback(
             };
 
             match user_by_email {
-                // Automatic linking by email
                 Some(u) => {
                     let link_res = sqlx::query_as::<_, User>(
-                        "UPDATE users SET github_id = $1 WHERE id = $2 RETURNING *",
+                        "UPDATE users SET github_id = $1, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3 RETURNING *",
                     )
                     .bind(&github_id)
+                    .bind(&github_user.avatar_url)
                     .bind(u.id)
                     .fetch_one(&state.db)
                     .await;
@@ -224,40 +229,93 @@ pub async fn github_callback(
                         }
                     }
                 }
-                // Create new user
                 None => {
                     let api_key = Uuid::new_v4().to_string();
-                    let insert_res = sqlx::query_as::<_, User>(
-                        "INSERT INTO users (github_id, username, email, api_key, oauth_account_created_at, credits) 
-                         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
+                    let mut tx = match state.db.begin().await {
+                        Ok(tx) => tx,
+                        Err(e) => {
+                            tracing::error!("Failed to start transaction: {}", e);
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                                .into_response();
+                        }
+                    };
+
+                    let user_count: i64 = match sqlx::query_scalar("SELECT COUNT(*) FROM users")
+                        .fetch_one(&mut *tx)
+                        .await
+                    {
+                        Ok(count) => count,
+                        Err(e) => {
+                            tracing::error!("Failed to count users: {}", e);
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                                .into_response();
+                        }
+                    };
+
+                    let role = if user_count == 0 {
+                        crate::models::UserRole::Admin
+                    } else {
+                        crate::models::UserRole::User
+                    };
+
+                    let user_res = sqlx::query_as::<_, User>(
+                        "INSERT INTO users (github_id, username, email, api_key, oauth_account_created_at, credits, avatar_url, role) 
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *"
                     )
                     .bind(&github_id)
                     .bind(&github_user.login)
                     .bind(&github_user.email)
                     .bind(&api_key)
                     .bind(github_user.created_at)
-                    .bind(Decimal::new(5000000000, 8)) // 50.00000000
-                    .fetch_one(&state.db)
+                    .bind(Decimal::new(50, 0))
+                    .bind(&github_user.avatar_url)
+                    .bind(role)
+                    .fetch_one(&mut *tx)
                     .await;
 
-                    match insert_res {
+                    let user = match user_res {
                         Ok(u) => u,
                         Err(e) => {
                             tracing::error!("Database error creating user: {}", e);
                             return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
                                 .into_response();
                         }
+                    };
+
+                    if let Err(e) = sqlx::query(
+                        "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)"
+                    )
+                    .bind(user.id)
+                    .bind(Decimal::new(50, 0))
+                    .bind(TransactionType::Bonus)
+                    .bind("Initial registration bonus")
+                    .execute(&mut *tx)
+                    .await {
+                        tracing::error!("Failed to log initial transaction: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
                     }
+
+                    if let Err(e) = tx.commit().await {
+                        tracing::error!("Failed to commit transaction: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                            .into_response();
+                    }
+
+                    user
                 }
             }
         }
     };
 
-    if let Err(e) = session.insert("user_id", user.id).await {
-        tracing::error!("Failed to insert user_id into session: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response();
-    }
-    Redirect::to("/dashboard").into_response()
+    let jar = jar.add(
+        Cookie::build(("user_id", user.id.to_string()))
+            .path("/")
+            .http_only(true)
+            .build(),
+    );
+    let jar = jar.remove(Cookie::build("csrf_token").path("/").build());
+
+    (jar, Redirect::to("/dashboard")).into_response()
 }
 
 pub async fn custom_http_client(
@@ -312,7 +370,10 @@ pub async fn custom_http_client(
     })
 }
 
-pub async fn gitlab_login(State(state): State<AppState>, session: Session) -> impl IntoResponse {
+pub async fn gitlab_login(
+    State(state): State<AppState>,
+    jar: PrivateCookieJar,
+) -> impl IntoResponse {
     let client = create_gitlab_client(&state);
 
     let (auth_url, csrf_token) = client
@@ -320,15 +381,14 @@ pub async fn gitlab_login(State(state): State<AppState>, session: Session) -> im
         .add_scope(Scope::new("read_user".to_string()))
         .url();
 
-    if let Err(e) = session
-        .insert("csrf_token", csrf_token.secret().to_string())
-        .await
-    {
-        tracing::error!("Failed to insert CSRF token into session: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response();
-    }
+    let jar = jar.add(
+        Cookie::build(("csrf_token", csrf_token.secret().to_string()))
+            .path("/")
+            .http_only(true)
+            .build(),
+    );
 
-    Redirect::to(auth_url.as_str()).into_response()
+    (jar, Redirect::to(auth_url.as_str())).into_response()
 }
 
 #[derive(Debug, Deserialize)]
@@ -336,19 +396,20 @@ struct GitlabUser {
     id: i64,
     username: String,
     email: Option<String>,
+    avatar_url: Option<String>,
     created_at: DateTime<Utc>,
 }
 
 pub async fn gitlab_callback(
     State(state): State<AppState>,
-    session: Session,
+    jar: PrivateCookieJar,
     Query(query): Query<AuthRequest>,
 ) -> impl IntoResponse {
-    let stored_csrf: String = session
+    let stored_csrf = jar
         .get("csrf_token")
-        .await
-        .unwrap_or_default()
+        .map(|c| c.value().to_string())
         .unwrap_or_default();
+
     if query.state != stored_csrf {
         return (StatusCode::BAD_REQUEST, "Invalid CSRF token").into_response();
     }
@@ -398,9 +459,13 @@ pub async fn gitlab_callback(
     }
 
     let gitlab_id = gitlab_user.id.to_string();
-    let current_user_id: Option<Uuid> = session.get("user_id").await.unwrap_or(None);
+    let current_user_id = jar
+        .get("user_id")
+        .and_then(|c| c.value().parse::<Uuid>().ok());
 
-    let user_by_gitlab_id = sqlx::query_as::<_, User>("SELECT * FROM users WHERE gitlab_id = $1")
+    let user_by_gitlab_id = sqlx::query_as::<_, User>(
+        "SELECT id, github_id, gitlab_id, email, username, avatar_url, credits, role, is_active, api_key, oauth_account_created_at, created_at FROM users WHERE gitlab_id = $1"
+    )
         .bind(&gitlab_id)
         .fetch_optional(&state.db)
         .await;
@@ -414,10 +479,8 @@ pub async fn gitlab_callback(
     };
 
     let user = match (current_user_id, user_by_gitlab_id) {
-        // Case 1: Logged in, and this GitLab account is already linked to THIS user.
         (Some(uid), Some(u)) if u.id == uid => u,
 
-        // Case 2: Logged in, but this GitLab account is linked to ANOTHER user.
         (Some(_), Some(_)) => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -426,12 +489,12 @@ pub async fn gitlab_callback(
                 .into_response();
         }
 
-        // Case 3: Logged in, and this GitLab account is NOT linked to anyone yet.
         (Some(uid), None) => {
             let link_res = sqlx::query_as::<_, User>(
-                "UPDATE users SET gitlab_id = $1 WHERE id = $2 RETURNING *",
+                "UPDATE users SET gitlab_id = $1, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3 RETURNING *",
             )
             .bind(&gitlab_id)
+            .bind(&gitlab_user.avatar_url)
             .bind(uid)
             .fetch_one(&state.db)
             .await;
@@ -445,13 +508,13 @@ pub async fn gitlab_callback(
             }
         }
 
-        // Case 4: NOT logged in, but this GitLab account is already linked to a user.
         (None, Some(u)) => u,
 
-        // Case 5: NOT logged in, and this GitLab account is NOT linked to anyone.
         (None, None) => {
             let user_by_email = if let Some(ref email) = gitlab_user.email {
-                sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = $1")
+                sqlx::query_as::<_, User>(
+                    "SELECT id, github_id, gitlab_id, email, username, avatar_url, credits, role, is_active, api_key, oauth_account_created_at, created_at FROM users WHERE email = $1"
+                )
                     .bind(email)
                     .fetch_optional(&state.db)
                     .await
@@ -468,12 +531,12 @@ pub async fn gitlab_callback(
             };
 
             match user_by_email {
-                // Automatic linking by email
                 Some(u) => {
                     let link_res = sqlx::query_as::<_, User>(
-                        "UPDATE users SET gitlab_id = $1 WHERE id = $2 RETURNING *",
+                        "UPDATE users SET gitlab_id = $1, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3 RETURNING *",
                     )
                     .bind(&gitlab_id)
+                    .bind(&gitlab_user.avatar_url)
                     .bind(u.id)
                     .fetch_one(&state.db)
                     .await;
@@ -487,46 +550,99 @@ pub async fn gitlab_callback(
                         }
                     }
                 }
-                // Create new user
                 None => {
                     let api_key = Uuid::new_v4().to_string();
-                    let insert_res = sqlx::query_as::<_, User>(
-                        "INSERT INTO users (gitlab_id, username, email, api_key, oauth_account_created_at, credits) 
-                         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
+                    let mut tx = match state.db.begin().await {
+                        Ok(tx) => tx,
+                        Err(e) => {
+                            tracing::error!("Failed to start transaction: {}", e);
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                                .into_response();
+                        }
+                    };
+
+                    let user_count: i64 = match sqlx::query_scalar("SELECT COUNT(*) FROM users")
+                        .fetch_one(&mut *tx)
+                        .await
+                    {
+                        Ok(count) => count,
+                        Err(e) => {
+                            tracing::error!("Failed to count users: {}", e);
+                            return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                                .into_response();
+                        }
+                    };
+
+                    let role = if user_count == 0 {
+                        crate::models::UserRole::Admin
+                    } else {
+                        crate::models::UserRole::User
+                    };
+
+                    let user_res = sqlx::query_as::<_, User>(
+                        "INSERT INTO users (gitlab_id, username, email, api_key, oauth_account_created_at, credits, avatar_url, role) 
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *"
                     )
                     .bind(&gitlab_id)
                     .bind(&gitlab_user.username)
                     .bind(&gitlab_user.email)
                     .bind(&api_key)
                     .bind(gitlab_user.created_at)
-                    .bind(Decimal::new(5000000000, 8)) // 50.00000000
-                    .fetch_one(&state.db)
+                    .bind(Decimal::new(50, 0))
+                    .bind(&gitlab_user.avatar_url)
+                    .bind(role)
+                    .fetch_one(&mut *tx)
                     .await;
 
-                    match insert_res {
+                    let user = match user_res {
                         Ok(u) => u,
                         Err(e) => {
                             tracing::error!("Database error creating user: {}", e);
                             return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
                                 .into_response();
                         }
+                    };
+
+                    if let Err(e) = sqlx::query(
+                        "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)"
+                    )
+                    .bind(user.id)
+                    .bind(Decimal::new(50, 0))
+                    .bind(TransactionType::Bonus)
+                    .bind("Initial registration bonus")
+                    .execute(&mut *tx)
+                    .await {
+                        tracing::error!("Failed to log initial transaction: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
                     }
+
+                    if let Err(e) = tx.commit().await {
+                        tracing::error!("Failed to commit transaction: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, "Database error")
+                            .into_response();
+                    }
+
+                    user
                 }
             }
         }
     };
 
-    if let Err(e) = session.insert("user_id", user.id).await {
-        tracing::error!("Failed to insert user_id into session: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response();
-    }
-    Redirect::to("/dashboard").into_response()
+    let jar = jar.add(
+        Cookie::build(("user_id", user.id.to_string()))
+            .path("/")
+            .http_only(true)
+            .build(),
+    );
+    let jar = jar.remove(Cookie::build("csrf_token").path("/").build());
+
+    (jar, Redirect::to("/dashboard")).into_response()
 }
 
-pub async fn logout(session: Session) -> impl IntoResponse {
-    session.clear().await;
+pub async fn logout(jar: PrivateCookieJar) -> impl IntoResponse {
+    let jar = jar.remove(Cookie::build("user_id").path("/").build());
 
-    Redirect::to("/")
+    (jar, Redirect::to("/"))
 }
 
 pub async fn regenerate_api_key(

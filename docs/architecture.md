@@ -59,11 +59,14 @@ We utilize [Modal](https://modal.com) for GPU-intensive tasks like background re
 - **Python Ecosystem**: Allows leveraging the rich ecosystem of Python AI/ML libraries (like PyTorch and BiRefNet) while keeping the main API in high-performance Rust.
 - **Concurrency Support**: Workers are configured with `allow_concurrent_inputs`, enabling a single GPU instance to process multiple requests simultaneously, maximizing resource utilization.
 
-### Declarative Middleware (Macros)
-We use a custom crate, `nijika-macros`, to provide declarative middleware for our handlers.
-- **`#[ratelimit(n)]`**: Implements a token-bucket rate limiter per IP address, ensuring fair usage and protecting the backend from spikes.
-- **`#[price("n")]`**: Handles credit validation and automatic deduction. It ensures a user has sufficient balance before processing and deducts the specified cost only upon a successful response from the worker.
-- **Benefits**: This approach keeps handler logic clean and focused on business logic while ensuring cross-cutting concerns like billing and throttling are applied consistently.
+### Middleware & Security
+We use several layers of middleware to ensure security and reliability:
+- **`axum-governor`**: Implements standard in-memory rate limiting for general API and health endpoints.
+- **`lazy-limit`**: Used in `main.rs` for global and prefix-based rate limiting with shared state support.
+- **`RealIpLayer`**: Ensures accurate rate limiting by extracting the client's true IP address when the API is deployed behind a proxy or load balancer.
+- **`#[price("n")]` macro**: A custom attribute macro that handles atomic credit validation, deduction, and automatic refunds upon failure. It ensures business logic remains clean while enforcing payment rules.
+- **`PrivateCookieJar`**: Used for secure, encrypted session management via `axum-extra`, providing a lightweight and high-performance alternative to external session stores for user authentication.
+- **Anti-Abuse Verification**: Authentication logic includes a check for the account age of the OAuth provider (GitHub/GitLab), requiring accounts to be at least one month old to prevent spam registrations.
 
 ### Why Rust & Axum?
 - **Performance**: Rust provides near-native performance with memory safety guarantees.
@@ -77,10 +80,10 @@ We use a custom crate, `nijika-macros`, to provide declarative middleware for ou
 - **Web Framework**: [Axum](https://github.com/tokio-rs/axum)
 - **Asynchronous Runtime**: [Tokio](https://tokio.rs/)
 - **Database**: [PostgreSQL](https://www.postgresql.org/) with [SQLx](https://github.com/launchbadge/sqlx)
-- **Authentication**: [OAuth2-rs](https://github.com/ramosbugs/oauth2-rs) and [tower-sessions](https://github.com/maxcountryman/tower-sessions)
+- **Authentication**: [OAuth2-rs](https://github.com/ramosbugs/oauth2-rs) and [axum-extra](https://github.com/tokio-rs/axum/tree/main/axum-extra) (PrivateCookieJar)
 - **Templating**: [Askama](https://github.com/askama-rs/askama)
 - **Logging & Diagnostics**: [Tracing](https://github.com/tokio-rs/tracing)
 - **Environment Management**: [dotenvy](https://github.com/allan2/dotenvy)
 - **Serialization**: [Serde](https://serde.rs/)
-- **Rate Limiting**: [tower-governor](https://github.com/benwis/tower-governor)
+- **Rate Limiting**: [axum-governor](https://github.com/lucacasonato/axum-governor) and [lazy-limit](https://github.com/canmi21/lazy-limit)
 - **HTTP Client**: [reqwest](https://github.com/seanmonstar/reqwest)

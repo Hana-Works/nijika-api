@@ -3,6 +3,7 @@ use axum::{
     extract::ConnectInfo,
     http::{Request, StatusCode},
 };
+use axum_extra::extract::cookie::Key;
 use nijika_api::AppState;
 use nijika_api::config::Config;
 use nijika_api::create_router;
@@ -14,8 +15,21 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_heavy_load_health_check() {
+    dotenvy::dotenv().ok();
+    let database_url =
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://localhost/unused".to_string());
+
+    // Initialize rate limiter for testing
+    // 100 requests per second, with an initial capacity of 50
+    lazy_limit::init_rate_limiter!(
+        default: lazy_limit::RuleConfig::new(lazy_limit::Duration::seconds(1), 50),
+        routes: [
+            ("/health", lazy_limit::RuleConfig::new(lazy_limit::Duration::seconds(1), 50)),
+        ]
+    )
+    .await;
+
     // Configure with a known limit to predict behavior
-    // 100 requests per second, burst of 50
     let config = Arc::new(Config {
         host: "127.0.0.1".to_string(),
         port: 3000,
@@ -23,19 +37,22 @@ async fn test_heavy_load_health_check() {
         modal_upscaler_url: "http://localhost:8001".to_string(),
         rate_limit_per_second: 100,
         rate_limit_burst: 50,
-        database_url: "postgres://localhost/unused".to_string(),
+        database_url,
         github_client_id: "unused".to_string(),
         github_client_secret: "unused".to_string(),
         gitlab_client_id: "unused".to_string(),
         gitlab_client_secret: "unused".to_string(),
         base_url: "http://localhost:3000".to_string(),
+        session_secret: "at-least-64-bytes-of-random-data-for-session-encryption-purposes-only"
+            .to_string(),
     });
 
     let db = PgPool::connect_lazy(&config.database_url).unwrap();
     let state = AppState {
         config: config.clone(),
-        db,
+        db: db.clone(),
         http_client: reqwest::Client::new(),
+        cookie_key: Key::from(config.session_secret.as_bytes()),
     };
 
     let app = create_router(state);
@@ -46,7 +63,6 @@ async fn test_heavy_load_health_check() {
 
     // Use a fixed address for all requests to trigger IP-based rate limiting if applicable
     // or use different ports to simulate different clients if we wanted to test global throughput.
-    // Governor usually defaults to PeerIpKeyExtractor.
     // Let's simulate a single IP flooding the server.
     let addr = SocketAddr::from(([127, 0, 0, 1], 5000));
 

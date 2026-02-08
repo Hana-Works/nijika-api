@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}System Status // NIJIKA Staff{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+        <a href="/dashboard" style="color: var(--text-muted); text-decoration: none; font-size: 0.8rem;">&larr; Back to Dashboard</a>
+    </div>
+    <h1>System Status & Infrastructure</h1>
+    <p style="color: var(--text-muted);">Global overview of the NIJIKA API infrastructure and usage.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="panel" style="text-align: center; padding: 2rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">Total Users</div>
+        <div style="font-size: 3rem; font-family: var(--font-header); color: var(--accent-color);">{{ total_users }}</div>
+    </div>
+    <div class="panel" style="text-align: center; padding: 2rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">Total Image Processing</div>
+        <div style="font-size: 3rem; font-family: var(--font-header); color: var(--accent-color);">{{ total_images_processed }}</div>
+    </div>
+    <div class="panel" style="text-align: center; padding: 2rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">Success Rate</div>
+        <div style="font-size: 3rem; font-family: var(--font-header); color: var(--success);">{{ "{:.1}"|format(success_rate) }}%</div>
+    </div>
+    <div class="panel" style="text-align: center; padding: 2rem;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">Circulating Credits</div>
+        <div style="font-size: 3rem; font-family: var(--font-header); color: var(--accent-color);">${{ total_credits.normalize() }}</div>
+    </div>
+</div>
+
+<div class="panel">
+    <h3>Worker Infrastructure</h3>
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Status of Modal serverless GPU workers.</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
+            <div>
+                <div style="font-weight: 600;">Background Removal (BiRefNet)</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">A10G GPU &bull; Modal Serverless</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--success);"></div>
+                <span style="font-size: 0.8rem; font-weight: bold; color: var(--success);">OPERATIONAL</span>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color);">
+            <div>
+                <div style="font-weight: 600;">Image Upscaling (Real-ESRGAN)</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">T4 GPU &bull; Modal Serverless</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background: var(--success);"></div>
+                <span style="font-size: 0.8rem; font-weight: bold; color: var(--success);">OPERATIONAL</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

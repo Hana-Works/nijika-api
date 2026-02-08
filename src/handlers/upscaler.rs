@@ -2,14 +2,12 @@ use crate::AppState;
 use crate::models::{UpscaleRequest, UpscalerModel, User};
 use axum::{
     Extension,
-    body::Body,
     extract::{FromRequest, Json, Multipart, Request, State},
-    http::{HeaderMap, StatusCode, header},
-    response::{IntoResponse, Response},
+    http::{StatusCode, header},
+    response::Response,
 };
 
 /// Handler for image upscaling.
-#[nijika_macros::ratelimit(2)]
 #[nijika_macros::price("0.02")]
 pub async fn upscale(
     State(state): State<AppState>,
@@ -126,7 +124,7 @@ pub async fn upscale(
     };
 
     match result {
-        Ok(res) => handle_modal_response(res).await,
+        Ok(res) => crate::handlers::handle_modal_response(res, "image/jpeg").await,
         Err(e) => {
             tracing::error!("Failed to call Modal worker: {}", e);
             (
@@ -136,31 +134,4 @@ pub async fn upscale(
                 .into_response()
         }
     }
-}
-
-async fn handle_modal_response(res: reqwest::Response) -> Response {
-    if !res.status().is_success() {
-        tracing::error!("Modal worker returned error: {}", res.status());
-        let error_text = res.text().await.unwrap_or_default();
-        tracing::error!("Modal worker error details: {}", error_text);
-        return (
-            StatusCode::BAD_GATEWAY,
-            format!("Processing worker returned an error: {}", error_text),
-        )
-            .into_response();
-    }
-
-    let mut headers = HeaderMap::new();
-    let ct = res
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("image/jpeg");
-
-    headers.insert(header::CONTENT_TYPE, ct.parse().unwrap());
-
-    let stream = res.bytes_stream();
-    let body = Body::from_stream(stream);
-
-    (headers, body).into_response()
 }

@@ -4,7 +4,14 @@ use syn::{ItemFn, Lit, parse_macro_input};
 
 #[proc_macro_attribute]
 pub fn price(attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Expect a string literal for price to avoid precision issues with float in tokens
+    let input = parse_macro_input!(item as ItemFn);
+    let ItemFn {
+        vis,
+        sig,
+        block,
+        attrs,
+    } = input;
+
     let cost_str = if let Ok(lit) = syn::parse::<Lit>(attr) {
         match lit {
             Lit::Str(s) => s.value(),
@@ -15,13 +22,12 @@ pub fn price(attr: TokenStream, item: TokenStream) -> TokenStream {
         "0".to_string()
     };
 
-    let input = parse_macro_input!(item as ItemFn);
-    let ItemFn {
-        vis,
-        sig,
-        block,
-        attrs,
-    } = input;
+    let fn_name = sig.ident.to_string();
+    let service_name = match fn_name.as_str() {
+        "remove_bg" => "Background Removal",
+        "upscale" => "Image Upscaling",
+        _ => &fn_name,
+    };
 
     let expanded = quote! {
         #(#attrs)*
@@ -32,72 +38,111 @@ pub fn price(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             let cost = Decimal::from_str(#cost_str).unwrap_or_default();
 
-            // Check credits first
-            if user.credits < cost {
-                return (axum::http::StatusCode::PAYMENT_REQUIRED, "Insufficient credits").into_response();
+            let mut tx = match state.db.begin().await {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::error!("Failed to start transaction: {}", e);
+                    return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+                }
+            };
+
+            let result = sqlx::query("UPDATE users SET credits = credits - $1 WHERE id = $2 AND credits >= $1")
+                .bind(cost)
+                .bind(user.id)
+                .execute(&mut *tx)
+                .await;
+
+            match result {
+                Ok(res) if res.rows_affected() == 0 => {
+                    let _ = tx.rollback().await;
+                    return (axum::http::StatusCode::PAYMENT_REQUIRED, "Insufficient credits").into_response();
+                }
+                Ok(_) => {},
+                Err(e) => {
+                    tracing::error!("Failed to deduct credits: {}", e);
+                    return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+                }
             }
 
-            // Execute the handler
-            let response = (async move #block).await.into_response();
+            if let Err(e) = sqlx::query(
+                "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)"
+            )
+            .bind(user.id)
+            .bind(-cost)
+            .bind(crate::models::TransactionType::Charge)
+            .bind(format!("Service usage: {}", #service_name))
+            .execute(&mut *tx)
+            .await {
+                tracing::error!("Failed to log transaction: {}", e);
+                return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+            }
 
-            // Deduct credits if successful
-            if response.status().is_success() {
-                let _ = sqlx::query("UPDATE users SET credits = credits - $1 WHERE id = $2")
+            let log_id: uuid::Uuid = match sqlx::query_scalar(
+                "INSERT INTO usage_logs (user_id, service, status, credits_used) VALUES ($1, $2, $3, $4) RETURNING id"
+            )
+            .bind(user.id)
+            .bind(#service_name)
+            .bind("pending")
+            .bind(cost)
+            .fetch_one(&mut *tx)
+            .await {
+                Ok(id) => id,
+                Err(e) => {
+                    tracing::error!("Failed to log pending usage: {}", e);
+                    return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+                }
+            };
+
+            if let Err(e) = tx.commit().await {
+                tracing::error!("Failed to commit upfront deduction: {}", e);
+                return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+            }
+
+            let response = (async #block).await.into_response();
+
+            let db = state.db.clone();
+            let user_id = user.id;
+
+            if !response.status().is_success() {
+                let mut refund_tx = match db.begin().await {
+                    Ok(t) => t,
+                    Err(_) => return response,
+                };
+
+                let _ = sqlx::query("UPDATE users SET credits = credits + $1 WHERE id = $2")
                     .bind(cost)
-                    .bind(user.id)
-                    .execute(&state.db)
+                    .bind(user_id)
+                    .execute(&mut *refund_tx)
                     .await;
+
+                let _ = sqlx::query(
+                    "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)"
+                )
+                .bind(user_id)
+                .bind(cost)
+                .bind(crate::models::TransactionType::Refund)
+                .bind(format!("Refund for failed service: {}", #service_name))
+                .execute(&mut *refund_tx)
+                .await;
+
+                let _ = sqlx::query(
+                    "UPDATE usage_logs SET status = 'failed' WHERE id = $1"
+                )
+                .bind(log_id)
+                .execute(&mut *refund_tx)
+                .await;
+
+                let _ = refund_tx.commit().await;
+            } else {
+                let _ = sqlx::query(
+                    "UPDATE usage_logs SET status = 'success' WHERE id = $1"
+                )
+                .bind(log_id)
+                .execute(&db)
+                .await;
             }
 
             response
-        }
-    };
-
-    TokenStream::from(expanded)
-}
-
-#[proc_macro_attribute]
-pub fn ratelimit(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let rps = if let Ok(lit) = syn::parse::<syn::LitInt>(attr) {
-        lit.base10_parse::<u32>().unwrap_or(5)
-    } else {
-        5
-    };
-
-    let input = parse_macro_input!(item as ItemFn);
-    let ItemFn {
-        vis,
-        sig,
-        block,
-        attrs,
-    } = input;
-
-    let expanded = quote! {
-        #(#attrs)*
-        #vis #sig {
-            use std::net::SocketAddr;
-            use axum::response::IntoResponse;
-            use governor::{Quota, RateLimiter};
-            use once_cell::sync::Lazy;
-            use dashmap::DashMap;
-            use std::num::NonZeroU32;
-            use std::sync::Arc;
-
-            static LIMITERS: Lazy<DashMap<SocketAddr, Arc<RateLimiter<governor::state::NotKeyed, governor::state::InMemoryState, governor::clock::DefaultClock>>>> = Lazy::new(DashMap::new);
-
-            let addr = request.extensions().get::<axum::extract::ConnectInfo<SocketAddr>>()
-                .map(|ci| ci.0)
-                .unwrap_or_else(|| SocketAddr::from(([127, 0, 0, 1], 0)));
-
-            let limiter = LIMITERS.entry(addr).or_insert_with(|| {
-                Arc::new(RateLimiter::direct(Quota::per_second(NonZeroU32::new(#rps).unwrap())))
-            });
-
-            if let Err(_) = limiter.check() {
-                return (axum::http::StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded").into_response();
-            }
-
-            (async move #block).await.into_response()
         }
     };
 

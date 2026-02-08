@@ -30,6 +30,8 @@ pub struct Config {
     pub gitlab_client_secret: String,
     /// Base URL for OAuth callbacks
     pub base_url: String,
+    /// Secret key for cookie encryption
+    pub session_secret: String,
 }
 
 impl Config {
@@ -66,6 +68,9 @@ impl Config {
         let gitlab_client_secret =
             env::var("GITLAB_CLIENT_SECRET").expect("GITLAB_CLIENT_SECRET must be set");
         let base_url = env::var("BASE_URL").unwrap_or_else(|_| format!("http://{}:{}", host, port));
+        let session_secret = env::var("SESSION_SECRET").unwrap_or_else(|_| {
+            "at-least-64-bytes-of-random-data-for-session-encryption-purposes-only".to_string()
+        });
 
         Self {
             host,
@@ -80,6 +85,7 @@ impl Config {
             gitlab_client_id,
             gitlab_client_secret,
             base_url,
+            session_secret,
         }
     }
 }

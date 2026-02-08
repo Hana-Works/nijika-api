@@ -1,9 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Hello, Askama!</title>
-</head>
-<body>
-    <h1>Hello, {{ name }}!</h1>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Hello // NIJIKA API{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="tag">Authentication Success</div>
+    <h1>Hello, {{ name }}</h1>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">Your account has been successfully verified. You now have full access to the NIJIKA API suite.</p>
+    
+    <div style="display: flex; gap: 1rem;">
+        <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+        <a href="/" class="btn btn-outline">Home</a>
+    </div>
+</div>
+{% endblock %}

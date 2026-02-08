@@ -11,6 +11,7 @@ pub mod routes;
 
 pub use routes::create_router;
 
+use axum_extra::extract::cookie::Key;
 use config::Config;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -20,4 +21,11 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub db: PgPool,
     pub http_client: reqwest::Client,
+    pub cookie_key: Key,
+}
+
+impl axum::extract::FromRef<AppState> for Key {
+    fn from_ref(state: &AppState) -> Self {
+        state.cookie_key.clone()
+    }
 }

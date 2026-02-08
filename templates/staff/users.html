@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}User Management // NIJIKA Staff{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+        <a href="/dashboard" style="color: var(--text-muted); text-decoration: none; font-size: 0.8rem;">&larr; Back to Dashboard</a>
+    </div>
+    <h1>User Management</h1>
+    <p style="color: var(--text-muted);">Manage and monitor all registered users in the system.</p>
+</div>
+
+<div class="panel">
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+                <tr style="text-align: left; border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                    <th style="padding: 1rem 0.5rem;">User</th>
+                    <th style="padding: 1rem 0.5rem;">Role</th>
+                    <th style="padding: 1rem 0.5rem;">Status</th>
+                    <th style="padding: 1rem 0.5rem;">Credits</th>
+                    <th style="padding: 1rem 0.5rem;">Joined</th>
+                    <th style="padding: 1rem 0.5rem; text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 1rem 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            {% if let Some(avatar) = user.avatar_url %}
+                                <img src="{{ avatar }}" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%;">
+                            {% else %}
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-color); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold;">
+                                    {{ user.username.as_deref().unwrap_or("U").get(0..1).unwrap_or("U") }}
+                                </div>
+                            {% endif %}
+                            <div>
+                                <div style="font-weight: 600;">{{ user.username.as_deref().unwrap_or("Anonymous") }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ user.email.as_deref().unwrap_or("-") }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding: 1rem 0.5rem;">
+                        <span style="font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; 
+                            {% if user.role_name() == "admin" %} background: #ff4d4d; color: white;
+                            {% elif user.role_name() == "moderator" %} background: #0099ff; color: white;
+                            {% else %} background: rgba(255,255,255,0.1); color: var(--text-muted);
+                            {% endif %}">
+                            {{ user.role_name() }}
+                        </span>
+                    </td>
+                    <td style="padding: 1rem 0.5rem;">
+                        {% if user.is_active %}
+                            <span style="color: var(--success); font-size: 0.75rem; font-weight: bold;">Active</span>
+                        {% else %}
+                            <span style="color: var(--danger); font-size: 0.75rem; font-weight: bold;">Suspended</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem 0.5rem; font-family: var(--font-mono); font-weight: 600;">
+                        ${{ user.formatted_credits() }}
+                    </td>
+                    <td style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.8rem;">
+                        {{ user.created_at.format("%b %d, %Y") }}
+                    </td>
+                    <td style="padding: 1rem 0.5rem; text-align: right;">
+                        <a href="/staff/users/{{ user.id }}" class="btn btn-outline" style="padding: 0.3rem 0.7rem; font-size: 0.75rem;">Manage</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pagination.total_pages > 1 %}
+    <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05);">
+        {% if pagination.has_previous() %}
+            <a href="/staff/users?page={{ pagination.current_page - 1 }}" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">&larr; Prev</a>
+        {% else %}
+            <span class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; opacity: 0.3; cursor: not-allowed;">&larr; Prev</span>
+        {% endif %}
+        
+        <span style="font-size: 0.85rem; color: var(--text-muted);">
+            Page <strong>{{ pagination.current_page }}</strong> of {{ pagination.total_pages }}
+        </span>
+        
+        {% if pagination.has_next() %}
+            <a href="/staff/users?page={{ pagination.current_page + 1 }}" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Next &rarr;</a>
+        {% else %}
+            <span class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; opacity: 0.3; cursor: not-allowed;">Next &rarr;</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

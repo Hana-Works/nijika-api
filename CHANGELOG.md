@@ -42,21 +42,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-08
+
 ### Added
 - PostgreSQL database integration via SQLx.
 - OAuth2 authentication supporting GitHub and GitLab providers.
-- **Account linking feature allowing users to connect multiple OAuth providers (GitHub, GitLab) to a single account.**
-- **Automatic account linking based on verified email addresses across different providers.**
-- Session-based user management using `tower-sessions`.
+- Account linking feature allowing users to connect multiple OAuth providers (GitHub, GitLab) to a single account.
+- Automatic account linking based on verified email addresses across different providers.
+- Session-based user management using encrypted cookies.
 - Credit-based usage system with automatic deduction via `#[price]` macro.
+- Recent usage tracking and display on the dashboard.
 - Custom API Key authentication (`X-API-Key`) for processing endpoints.
 - Web dashboard for user registration, login, and credit management.
-- `nijika-macros` crate for declarative rate limiting and pricing on handlers.
+- `nijika-macros` crate for declarative pricing on handlers.
 - `Dockerfile` for containerized deployment.
 - `Makefile` to streamline common development tasks (fmt, clippy, test, check).
 - Database migrations for user and session management.
+- Comprehensive unit tests for core models (`User`, `UserRole`, `PaginationMetadata`) in `src/models/mod.rs`.
+- Dedicated `docs/staff_api.md` documenting administrative and moderation endpoints.
 
 ### Changed
 - Restructured API endpoints under the `/api` prefix (e.g., `/api/removebg`, `/api/upscale`).
 - Updated all core documentation (GEMINI.md, docs/api.md, docs/architecture.md) to reflect the new system architecture.
 - Refactored `removebg` and `upscaler` handlers to use the new `AppState` and credit-aware macros.
+- Synchronized `docs/api.md` with implementation, fixing upscaler model naming inconsistencies.
+- Improved documentation navigation by linking Staff API reference from the main API documentation.
+- Audited codebase for consistency between documentation, migrations, and implementation.

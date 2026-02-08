@@ -26,12 +26,13 @@
 - `docs/`: Detailed API and architecture documentation.
 
 ## Core Features
-- **Background Removal:** `/api/removebg` endpoint using BiRefNet.
-- **Image Upscaling:** `/api/upscale` endpoint using Real-ESRGAN.
+- **Background Removal:** `/api/removebg` endpoint using BiRefNet (Cost: 0.01 credits).
+- **Image Upscaling:** `/api/upscale` endpoint using Real-ESRGAN (Cost: 0.02 credits).
 - **User Authentication:** OAuth2 integration with GitHub and GitLab.
-- **Credits System:** Usage-based billing/quota system.
-- **Rate Limiting:** Integrated request throttling.
-- **Web Dashboard:** User interface for managing API keys and credits.
+- **Anti-Abuse Logic:** 1-month account age requirement for OAuth logins.
+- **Credits System:** Usage-based billing with a 50-credit registration bonus.
+- **Rate Limiting:** Multi-layered request throttling using `lazy-limit` and `axum-governor`.
+- **Web Dashboard:** User interface for managing API keys, viewing logs, and linked accounts.
 - **Multipart & JSON Support:** Flexible input options for both URL and file uploads.
 
 ## Building and Running
