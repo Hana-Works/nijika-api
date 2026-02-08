@@ -41,3 +41,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed integration tests (`heavy_load_test.rs` and `rate_limit_test.rs`) that were failing to compile due to missing fields in `Config` initialization.
 
 ## [Unreleased]
+
+### Added
+- PostgreSQL database integration via SQLx.
+- OAuth2 authentication supporting GitHub and GitLab providers.
+- **Account linking feature allowing users to connect multiple OAuth providers (GitHub, GitLab) to a single account.**
+- **Automatic account linking based on verified email addresses across different providers.**
+- Session-based user management using `tower-sessions`.
+- Credit-based usage system with automatic deduction via `#[price]` macro.
+- Custom API Key authentication (`X-API-Key`) for processing endpoints.
+- Web dashboard for user registration, login, and credit management.
+- `nijika-macros` crate for declarative rate limiting and pricing on handlers.
+- `Dockerfile` for containerized deployment.
+- `Makefile` to streamline common development tasks (fmt, clippy, test, check).
+- Database migrations for user and session management.
+
+### Changed
+- Restructured API endpoints under the `/api` prefix (e.g., `/api/removebg`, `/api/upscale`).
+- Updated all core documentation (GEMINI.md, docs/api.md, docs/architecture.md) to reflect the new system architecture.
+- Refactored `removebg` and `upscaler` handlers to use the new `AppState` and credit-aware macros.

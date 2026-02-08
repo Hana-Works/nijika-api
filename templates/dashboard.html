@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Nijika API</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        nav a { margin-right: 1em; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+        <a href="/dashboard">Dashboard</a>
+    </nav>
+    <h1>Dashboard</h1>
+    <p>Welcome, {{ user.username.as_deref().unwrap_or("User") }}!</p>
+    <div>
+        <h3>Your API Key:</h3>
+        <code>{{ user.api_key }}</code>
+        <p><small>Keep this key secret! Use it in the <code>X-API-Key</code> header.</small></p>
+        <form action="/auth/regenerate-api-key" method="POST" onsubmit="return confirm('Are you sure you want to regenerate your API key? The old one will stop working immediately.');">
+            <button type="submit">Regenerate API Key</button>
+        </form>
+    </div>
+    <div>
+        <h3>Your Credits:</h3>
+        <p><strong>${{ user.credits }}</strong></p>
+    </div>
+    <div>
+        <h3>Linked Accounts:</h3>
+        <ul>
+            <li>
+                GitHub: 
+                {% if user.github_id.is_some() %}
+                    Linked
+                {% else %}
+                    <a href="/auth/github">Link GitHub Account</a>
+                {% endif %}
+            </li>
+            <li>
+                GitLab: 
+                {% if user.gitlab_id.is_some() %}
+                    Linked
+                {% else %}
+                    <a href="/auth/gitlab">Link GitLab Account</a>
+                {% endif %}
+            </li>
+        </ul>
+    </div>
+    <hr>
+    <p><a href="/auth/logout">Logout</a></p>
+</body>
+</html>

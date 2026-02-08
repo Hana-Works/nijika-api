@@ -1,4 +1,20 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+/// User model representing a registered user in the system.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct User {
+    pub id: Uuid,
+    pub github_id: Option<String>,
+    pub gitlab_id: Option<String>,
+    pub email: Option<String>,
+    pub username: Option<String>,
+    pub credits: rust_decimal::Decimal,
+    pub api_key: String,
+    pub oauth_account_created_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
 
 /// Request payload for background removal via URL.
 #[derive(Debug, Serialize, Deserialize)]

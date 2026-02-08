@@ -1,32 +1,32 @@
-use crate::config::Config;
-use crate::models::{UpscaleRequest, UpscalerModel};
+use crate::AppState;
+use crate::models::{UpscaleRequest, UpscalerModel, User};
 use axum::{
+    Extension,
     body::Body,
     extract::{FromRequest, Json, Multipart, Request, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use std::sync::Arc;
 
 /// Handler for image upscaling.
-///
-/// Accepts either:
-/// 1. `multipart/form-data` with an 'image' field (file upload) and optional parameters.
-/// 2. `application/json` with a 'url' field (image URL) and optional parameters.
-///
-/// Forwards the request to a Modal worker for processing and returns the result.
-pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Response {
+#[nijika_macros::ratelimit(2)]
+#[nijika_macros::price("0.02")]
+pub async fn upscale(
+    State(state): State<AppState>,
+    Extension(user): Extension<User>,
+    request: Request,
+) -> Response {
     let content_type = request
         .headers()
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .unwrap_or("");
 
-    let modal_url = &config.modal_upscaler_url;
-    let client = reqwest::Client::new();
+    let modal_url = &state.config.modal_upscaler_url;
 
-    if content_type.starts_with("application/json") {
-        let Json(payload) = match Json::<UpscaleRequest>::from_request(request, &config).await {
+    let result = if content_type.starts_with("application/json") {
+        let Json(payload) = match Json::<UpscaleRequest>::from_request(request, &state.config).await
+        {
             Ok(j) => j,
             Err(e) => {
                 return (StatusCode::BAD_REQUEST, format!("Invalid JSON: {}", e)).into_response();
@@ -37,21 +37,14 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
             return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
         }
 
-        let res = match client.post(modal_url).json(&payload).send().await {
-            Ok(res) => res,
-            Err(e) => {
-                tracing::error!("Failed to call Modal worker: {}", e);
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to connect to processing worker",
-                )
-                    .into_response();
-            }
-        };
-
-        handle_modal_response(res).await
+        state
+            .http_client
+            .post(modal_url)
+            .json(&payload)
+            .send()
+            .await
     } else if content_type.starts_with("multipart/form-data") {
-        let mut multipart = match Multipart::from_request(request, &config).await {
+        let mut multipart = match Multipart::from_request(request, &state.config).await {
             Ok(m) => m,
             Err(e) => {
                 return (
@@ -107,7 +100,8 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
             return (StatusCode::BAD_REQUEST, "Scale must be between 1 and 6").into_response();
         }
 
-        let mut rb = client
+        let mut rb = state
+            .http_client
             .post(modal_url)
             .body(image_bytes)
             .header("Content-Type", "application/octet-stream");
@@ -122,25 +116,25 @@ pub async fn upscale(State(config): State<Arc<Config>>, request: Request) -> Res
             rb = rb.header("X-Face-Enhance", f.to_string());
         }
 
-        let res = match rb.send().await {
-            Ok(res) => res,
-            Err(e) => {
-                tracing::error!("Failed to call Modal worker: {}", e);
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Failed to connect to processing worker",
-                )
-                    .into_response();
-            }
-        };
-
-        handle_modal_response(res).await
+        rb.send().await
     } else {
-        (
+        return (
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "Content-Type must be application/json or multipart/form-data",
         )
-            .into_response()
+            .into_response();
+    };
+
+    match result {
+        Ok(res) => handle_modal_response(res).await,
+        Err(e) => {
+            tracing::error!("Failed to call Modal worker: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to connect to processing worker",
+            )
+                .into_response()
+        }
     }
 }
 

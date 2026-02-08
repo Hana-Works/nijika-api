@@ -7,6 +7,7 @@
 use axum::{Json, response::IntoResponse};
 use serde_json::json;
 
+pub mod auth;
 pub mod removebg;
 pub mod upscaler;
 

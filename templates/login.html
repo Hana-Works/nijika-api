@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Nijika API</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        nav a { margin-right: 1em; }
+        form { margin-top: 1em; }
+        label { display: block; margin-bottom: 0.5em; }
+        input[type="text"], input[type="password"] { width: 200px; padding: 0.5em; margin-bottom: 1em; }
+        button { padding: 0.7em 1.5em; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+        <a href="/dashboard">Dashboard</a>
+    </nav>
+    <h1>Login</h1>
+    <p>Sign in using your preferred provider:</p>
+    <div style="margin-top: 1em;">
+        <a href="/auth/github" style="display: inline-block; padding: 10px 20px; background-color: #333; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login with GitHub</a>
+        <a href="/auth/gitlab" style="display: inline-block; padding: 10px 20px; background-color: #e24329; color: white; text-decoration: none; border-radius: 5px;">Login with GitLab</a>
+    </div>
+    <p><small>Note: Your account must be at least 1 month old.</small></p>
+</body>
+</html>

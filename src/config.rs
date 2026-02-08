@@ -18,6 +18,18 @@ pub struct Config {
     pub rate_limit_per_second: u64,
     /// Rate limit: burst size
     pub rate_limit_burst: u32,
+    /// Database connection URL
+    pub database_url: String,
+    /// GitHub OAuth Client ID
+    pub github_client_id: String,
+    /// GitHub OAuth Client Secret
+    pub github_client_secret: String,
+    /// GitLab OAuth Client ID
+    pub gitlab_client_id: String,
+    /// GitLab OAuth Client Secret
+    pub gitlab_client_secret: String,
+    /// Base URL for OAuth callbacks
+    pub base_url: String,
 }
 
 impl Config {
@@ -46,6 +58,14 @@ impl Config {
             .unwrap_or_else(|_| "100".to_string())
             .parse::<u32>()
             .expect("RATE_LIMIT_BURST must be a valid u32");
+        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let github_client_id = env::var("GITHUB_CLIENT_ID").expect("GITHUB_CLIENT_ID must be set");
+        let github_client_secret =
+            env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET must be set");
+        let gitlab_client_id = env::var("GITLAB_CLIENT_ID").expect("GITLAB_CLIENT_ID must be set");
+        let gitlab_client_secret =
+            env::var("GITLAB_CLIENT_SECRET").expect("GITLAB_CLIENT_SECRET must be set");
+        let base_url = env::var("BASE_URL").unwrap_or_else(|_| format!("http://{}:{}", host, port));
 
         Self {
             host,
@@ -54,6 +74,12 @@ impl Config {
             modal_upscaler_url,
             rate_limit_per_second,
             rate_limit_burst,
+            database_url,
+            github_client_id,
+            github_client_secret,
+            gitlab_client_id,
+            gitlab_client_secret,
+            base_url,
         }
     }
 }
